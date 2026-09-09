@@ -1,5 +1,4 @@
 import os
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -74,9 +73,6 @@ print(df.head())
 
 # ---------------------------------------------------------
 # SELECT ONE JUNCTION
-#
-# Starting with a single junction makes the first model
-# easier to understand and debug.
 # ---------------------------------------------------------
 
 junction_id = 1
@@ -89,14 +85,8 @@ junction_df = junction_df.sort_values(
     "DateTime"
 ).reset_index(drop=True)
 
-print(
-    f"\nUsing Junction {junction_id}"
-)
-
-print(
-    "Number of observations:",
-    len(junction_df)
-)
+print(f"\nUsing Junction {junction_id}")
+print("Number of observations:", len(junction_df))
 
 
 # ---------------------------------------------------------
@@ -115,9 +105,6 @@ TARGET_COLUMN = "Vehicles"
 
 # ---------------------------------------------------------
 # TRAIN / TEST SPLIT
-#
-# Important:
-# We do NOT shuffle time-series data.
 # ---------------------------------------------------------
 
 split_index = int(
@@ -132,15 +119,12 @@ test_df = junction_df.iloc[
     split_index:
 ].copy()
 
-
 print("\nTraining rows:", len(train_df))
 print("Testing rows:", len(test_df))
 
 
 # ---------------------------------------------------------
 # SCALE FEATURES
-#
-# Fit scaler only on training data to avoid data leakage.
 # ---------------------------------------------------------
 
 feature_scaler = MinMaxScaler()
@@ -155,7 +139,7 @@ test_features = feature_scaler.transform(
 
 
 # ---------------------------------------------------------
-# SCALE TARGET SEPARATELY
+# SCALE TARGET
 # ---------------------------------------------------------
 
 target_scaler = MinMaxScaler()
@@ -172,11 +156,7 @@ test_targets = target_scaler.transform(
 # ---------------------------------------------------------
 # CREATE SEQUENCES
 #
-# Example with sequence length 24:
-#
-# previous 24 hours
-#        ↓
-# predict next hour
+# Previous 24 hours -> predict next hour
 # ---------------------------------------------------------
 
 def create_sequences(
@@ -203,10 +183,7 @@ def create_sequences(
             targets[i]
         )
 
-    return (
-        np.array(X),
-        np.array(y)
-    )
+    return np.array(X), np.array(y)
 
 
 X_train, y_train = create_sequences(
@@ -223,26 +200,10 @@ X_test, y_test = create_sequences(
 
 
 print("\nSequence shapes:")
-
-print(
-    "X_train:",
-    X_train.shape
-)
-
-print(
-    "y_train:",
-    y_train.shape
-)
-
-print(
-    "X_test:",
-    X_test.shape
-)
-
-print(
-    "y_test:",
-    y_test.shape
-)
+print("X_train:", X_train.shape)
+print("y_train:", y_train.shape)
+print("X_test:", X_test.shape)
+print("y_test:", y_test.shape)
 
 
 # ---------------------------------------------------------
@@ -286,14 +247,11 @@ model.compile(
 
 
 print("\nModel architecture:")
-
 model.summary()
 
 
 # ---------------------------------------------------------
 # EARLY STOPPING
-#
-# Stops training if validation loss stops improving.
 # ---------------------------------------------------------
 
 early_stopping = EarlyStopping(
@@ -332,7 +290,7 @@ history = model.fit(
 
 
 # ---------------------------------------------------------
-# PREDICTIONS
+# LSTM PREDICTIONS
 # ---------------------------------------------------------
 
 predictions_scaled = model.predict(
@@ -349,7 +307,7 @@ actual_values = target_scaler.inverse_transform(
 
 
 # ---------------------------------------------------------
-# EVALUATION
+# LSTM EVALUATION
 # ---------------------------------------------------------
 
 mae = mean_absolute_error(
@@ -370,25 +328,70 @@ r2 = r2_score(
 )
 
 
+# ---------------------------------------------------------
+# NAIVE BASELINE
+#
+# Predict next-hour traffic using the most recent
+# observed vehicle count.
+# ---------------------------------------------------------
+
+vehicle_feature_index = FEATURE_COLUMNS.index(
+    "Vehicles"
+)
+
+baseline_scaled = X_test[
+    :,
+    -1,
+    vehicle_feature_index
+]
+
+baseline_predictions = target_scaler.inverse_transform(
+    baseline_scaled.reshape(-1, 1)
+).flatten()
+
+
+baseline_mae = mean_absolute_error(
+    actual_values,
+    baseline_predictions
+)
+
+baseline_mse = mean_squared_error(
+    actual_values,
+    baseline_predictions
+)
+
+baseline_rmse = np.sqrt(
+    baseline_mse
+)
+
+baseline_r2 = r2_score(
+    actual_values,
+    baseline_predictions
+)
+
+
+# ---------------------------------------------------------
+# PRINT RESULTS
+# ---------------------------------------------------------
+
 print("\n==============================")
-print("MODEL PERFORMANCE")
+print("LSTM MODEL PERFORMANCE")
 print("==============================")
 
-print(
-    f"MAE  : {mae:.4f}"
-)
+print(f"MAE  : {mae:.4f}")
+print(f"MSE  : {mse:.4f}")
+print(f"RMSE : {rmse:.4f}")
+print(f"R²   : {r2:.4f}")
 
-print(
-    f"MSE  : {mse:.4f}"
-)
 
-print(
-    f"RMSE : {rmse:.4f}"
-)
+print("\n==============================")
+print("NAIVE BASELINE PERFORMANCE")
+print("==============================")
 
-print(
-    f"R²   : {r2:.4f}"
-)
+print(f"MAE  : {baseline_mae:.4f}")
+print(f"MSE  : {baseline_mse:.4f}")
+print(f"RMSE : {baseline_rmse:.4f}")
+print(f"R²   : {baseline_r2:.4f}")
 
 
 # ---------------------------------------------------------
@@ -410,7 +413,17 @@ print(
 
 
 # ---------------------------------------------------------
-# VISUALIZE RESULTS
+# CREATE RESULTS DIRECTORY
+# ---------------------------------------------------------
+
+os.makedirs(
+    "results",
+    exist_ok=True
+)
+
+
+# ---------------------------------------------------------
+# TRAFFIC PREDICTION GRAPH
 # ---------------------------------------------------------
 
 plt.figure(
@@ -424,7 +437,7 @@ plt.plot(
 
 plt.plot(
     predictions,
-    label="Predicted Traffic"
+    label="LSTM Prediction"
 )
 
 plt.xlabel(
@@ -442,5 +455,52 @@ plt.title(
 plt.legend()
 
 plt.tight_layout()
+
+plt.savefig(
+    "results/traffic_prediction.png",
+    dpi=300
+)
+
+plt.show()
+
+
+# ---------------------------------------------------------
+# TRAINING / VALIDATION LOSS GRAPH
+# ---------------------------------------------------------
+
+plt.figure(
+    figsize=(10, 5)
+)
+
+plt.plot(
+    history.history["loss"],
+    label="Training Loss"
+)
+
+plt.plot(
+    history.history["val_loss"],
+    label="Validation Loss"
+)
+
+plt.xlabel(
+    "Epoch"
+)
+
+plt.ylabel(
+    "Loss"
+)
+
+plt.title(
+    "Training vs Validation Loss"
+)
+
+plt.legend()
+
+plt.tight_layout()
+
+plt.savefig(
+    "results/training_loss.png",
+    dpi=300
+)
 
 plt.show()
