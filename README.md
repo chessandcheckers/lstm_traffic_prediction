@@ -115,31 +115,33 @@ Trained using the Adam optimizer with Mean Squared Error loss. Early stopping mo
 
 ## Results
 
-### LSTM Model
+### Initial LSTM
 
-```text
-MAE  : 7.8180
-MSE  : 100.2390
-RMSE : 10.0119
-R²   : 0.8210
-```
+The first rebuilt version achieved:
 
-### Naive Baseline (Persistence Model)
+| Metric | LSTM |
+|---|---:|
+| MAE | 9.2037 |
+| MSE | 130.0253 |
+| RMSE | 11.4029 |
+| R² | 0.7678 |
 
-The naive baseline predicts the next hour's traffic as equal to the current hour — the simplest possible forecasting strategy.
+After further training, the current model achieved:
 
-```text
-MAE  : 6.2560
-MSE  : 65.5009
-RMSE : 8.0933
-R²   : 0.8830
-```
+| Metric | LSTM | Naive Baseline |
+|---|---:|---:|
+| MAE | 7.8180 | **6.2560** |
+| MSE | 100.2390 | **65.5009** |
+| RMSE | 10.0119 | **8.0933** |
+| R² | 0.8210 | **0.8830** |
 
-### Interpretation
+Although the LSTM captures the overall temporal traffic pattern well, the naive persistence baseline currently outperforms it on the test set.
 
-The LSTM improved significantly from v1 (R² 0.77 → 0.82), but the naive baseline currently outperforms it on every metric. This is a meaningful result — it means the model is learning temporal patterns but not yet extracting enough signal to beat a simple "predict the last value" heuristic. Beating the baseline is the next concrete target.
+The baseline predicts the next hour's traffic using the vehicle count from the immediately preceding hour. Its strong performance suggests substantial short-term autocorrelation in the traffic series.
 
-The prediction graph shows the model tracks daily traffic cycles well but underestimates sudden peaks — consistent with the gap in the numbers above.
+Rather than treating the LSTM's standalone R² score as sufficient evidence of good forecasting performance, this comparison highlights the importance of evaluating time-series models against simple baselines.
+
+This result motivates further experimentation with temporal feature engineering, cyclical time representations, longer-term lag information, and model architecture.
 
 ![Actual vs Predicted Traffic](results/traffic_prediction.png)
 ![Training vs Validation Loss](results/training_loss.png)
