@@ -1,6 +1,6 @@
 # LSTM Traffic Prediction
 
-> **Status:** Actively rebuilding · Junction 1 pipeline complete · Baseline comparisons in progress
+> **Status:** Actively developing · v2 pushed · Baseline comparison complete · Multi-junction extension planned
 
 A time-series forecasting project using a Long Short-Term Memory (LSTM) neural network to predict hourly urban traffic volume from historical traffic patterns.
 
@@ -115,20 +115,34 @@ Trained using the Adam optimizer with Mean Squared Error loss. Early stopping mo
 
 ## Results
 
-The current model achieves the following on unseen test observations for Junction 1:
+### LSTM Model
 
 ```text
-MAE  : 9.2037
-MSE  : 130.0253
-RMSE : 11.4029
-R²   : 0.7678
+MAE  : 7.8180
+MSE  : 100.2390
+RMSE : 10.0119
+R²   : 0.8210
 ```
 
-The model captures recurring temporal patterns reasonably well. The prediction graph shows a tendency to smooth out sudden traffic spikes — a known limitation of sequence models on high-variance events.
+### Naive Baseline (Persistence Model)
+
+The naive baseline predicts the next hour's traffic as equal to the current hour — the simplest possible forecasting strategy.
+
+```text
+MAE  : 6.2560
+MSE  : 65.5009
+RMSE : 8.0933
+R²   : 0.8830
+```
+
+### Interpretation
+
+The LSTM improved significantly from v1 (R² 0.77 → 0.82), but the naive baseline currently outperforms it on every metric. This is a meaningful result — it means the model is learning temporal patterns but not yet extracting enough signal to beat a simple "predict the last value" heuristic. Beating the baseline is the next concrete target.
+
+The prediction graph shows the model tracks daily traffic cycles well but underestimates sudden peaks — consistent with the gap in the numbers above.
 
 ![Actual vs Predicted Traffic](results/traffic_prediction.png)
-
-> These are current results, not final benchmarks. The model is being improved and evaluated against a naive baseline before drawing conclusions about forecasting performance.
+![Training vs Validation Loss](results/training_loss.png)
 
 ---
 
@@ -183,7 +197,7 @@ Place `traffic.csv` inside `data/` and run:
 python src/train_model.py
 ```
 
-The script trains the model, evaluates predictions, saves the trained model, and generates result visualizations.
+The script trains the model, evaluates predictions against the naive baseline, saves the trained model, and generates result visualizations.
 
 ---
 
@@ -192,12 +206,13 @@ The script trains the model, evaluates predictions, saves the trained model, and
 - trains on a single junction only
 - vehicle count used as a proxy for traffic volume rather than physical density
 - no contextual features: weather, accidents, holidays, road conditions, or events
+- LSTM does not yet outperform the naive persistence baseline
 - sudden traffic spikes are harder to predict accurately
-- baseline comparisons and further model experiments still in progress
 
 ## Planned Improvements
 
-- evaluate LSTM against simple forecasting baselines
+- improve model performance to beat the naive baseline
+- evaluate against additional baselines (moving average, seasonal naive)
 - extend pipeline to multiple junctions
 - improved temporal feature engineering
 - experiments with different sequence lengths and architectures
